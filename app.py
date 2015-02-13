@@ -58,6 +58,21 @@ def register_stream():
 	r = requests.post(url, headers=headers)
 	return json.loads(r.text)
 
+def build_events(counts):
+	events = []
+	event = {}
+	event['source'] = app.config['APP_NAME']
+	event['version'] = app.config['APP_VERSION']
+	event['actionTags'] = app.config['ACTION_TAGS']
+	event['objectTags'] = app.config['OBJECT_TAGS']
+
+	for key in counts:
+		date = key.isoformat()
+		event['dateTime'] = date
+		event['properties'] = {"count": counts[key]}
+		events.append(event)
+	return events
+
 @app.route("/")
 def index():
 	return render_template("index.html")
@@ -88,11 +103,11 @@ def callback():
 
 	counts = {}
 	for date in dates:
-		if str(date) in counts:
-			counts[str(date)] = counts[str(date)] + 1
+		if date in counts:
+			counts[date] = counts[date] + 1
 		else:
-			counts[str(date)] = 1
-	print(register_stream())
+			counts[date] = 1
+	print(build_events(counts))
 
 	return render_template("tweets.html", counts=counts, username=username)
 
