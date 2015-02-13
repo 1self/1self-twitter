@@ -56,9 +56,15 @@ def register_stream():
 	auth_string = app_id + ":" + app_secret
 	headers = {"Authorization": auth_string}
 	r = requests.post(url, headers=headers)
-	return json.loads(r.text)
+	try:
+		response = json.loads(r.text)
+		return response, r.status_code
+	except ValueError:
+		return r.text, r.status_code
 
 def build_events(counts):
+	if len(counts) == 0:
+		return []
 	events = []
 	event = {}
 	event['source'] = app.config['APP_NAME']
@@ -72,6 +78,18 @@ def build_events(counts):
 		event['properties'] = {"count": counts[key]}
 		events.append(event)
 	return events
+
+def send_batch_events(events, stream):
+	if len(events) == 0:
+		return None
+	url = app.config['API_URL'] + "/v1/streams/" + stream['streamid'] + "/events/batch"
+	headers = {"Authorization": stream['writeToken'], "Content-Type": "application/json"}
+	r = requests.post(url, data=json.dumps(events), headers=headers)
+	try:
+		response = json.loads(r.text)
+		return response, r.status_code
+	except ValueError:
+		return r.text, r.status_code
 
 @app.route("/")
 def index():
@@ -107,7 +125,7 @@ def callback():
 			counts[date] = counts[date] + 1
 		else:
 			counts[date] = 1
-	print(build_events(counts))
+	print(send_batch_events(build_events(counts), register_stream()[0]))
 
 	return render_template("tweets.html", counts=counts, username=username)
 
