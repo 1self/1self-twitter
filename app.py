@@ -2,6 +2,7 @@ from flask import Flask, render_template, views, request, redirect
 from birdy.twitter import UserClient
 from datetime import datetime
 from pymongo import MongoClient
+import requests, json
 
 app = Flask(__name__)
 app.config.from_object('config')
@@ -48,6 +49,15 @@ def save_ouath_token(username, oauth_token, oauth_token_secret):
 	post["datetime"] = datetime.utcnow()
 	return posts.update({"username": username}, post, upsert=True)
 
+def register_stream():
+	url = app.config['API_URL'] + "/v1/streams"
+	app_id = app.config['APP_ID']
+	app_secret = app.config['APP_SECRET']
+	auth_string = app_id + ":" + app_secret
+	headers = {"Authorization": auth_string}
+	r = requests.post(url, headers=headers)
+	return json.loads(r.text)
+
 @app.route("/")
 def index():
 	return render_template("index.html")
@@ -82,6 +92,7 @@ def callback():
 			counts[str(date)] = counts[str(date)] + 1
 		else:
 			counts[str(date)] = 1
+	print(register_stream())
 
 	return render_template("tweets.html", counts=counts, username=username)
 
