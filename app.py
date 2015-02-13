@@ -66,14 +66,14 @@ def build_events(counts):
 	if len(counts) == 0:
 		return []
 	events = []
-	event = {}
-	event['source'] = app.config['APP_NAME']
-	event['version'] = app.config['APP_VERSION']
-	event['actionTags'] = app.config['ACTION_TAGS']
-	event['objectTags'] = app.config['OBJECT_TAGS']
 
 	for key in counts:
 		date = key.isoformat()
+		event = {}
+		event['source'] = app.config['APP_NAME']
+		event['version'] = app.config['APP_VERSION']
+		event['actionTags'] = app.config['ACTION_TAGS']
+		event['objectTags'] = app.config['OBJECT_TAGS']
 		event['dateTime'] = date
 		event['properties'] = {"count": counts[key]}
 		events.append(event)
@@ -90,6 +90,17 @@ def send_batch_events(events, stream):
 		return response, r.status_code
 	except ValueError:
 		return r.text, r.status_code
+
+def build_graph_url(stream):
+	objectTags = app.config['OBJECT_TAGS']
+	actionTags = app.config['ACTION_TAGS']
+
+	def strigify_tags(tags):
+		return str(",".join(tags))
+
+	url = app.config['API_URL'] + u"/v1/streams/" + stream['streamid'] + "/events/tweets/tweet/sum(count)/daily/barchart?readToken=" + stream['readToken'] + "&bgColor=00acee";
+
+	return url
 
 @app.route("/")
 def index():
@@ -125,7 +136,10 @@ def callback():
 			counts[date] = counts[date] + 1
 		else:
 			counts[date] = 1
-	print(send_batch_events(build_events(counts), register_stream()[0]))
+
+	stream, status = register_stream()
+	print(send_batch_events(build_events(counts), stream))
+	print(build_graph_url(stream))
 
 	return render_template("tweets.html", counts=counts, username=username)
 
