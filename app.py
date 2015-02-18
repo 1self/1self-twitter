@@ -14,50 +14,48 @@ CALLBACK_URL = app.config['CALLBACK_URL']
 def parse_created_at(created_at):
 	return datetime.strptime(created_at, '%a %b %d %H:%M:%S +0000 %Y')
 
-def get_last_since_id(username):
-	id = 1
+def fetch_db_docs():
 	client = MongoClient()
 	db = client['1self-twitter']
-	posts = db.posts
-	data = posts.find_one({"username": username})
+	return db.docs
+
+def fetch_user_data(username):
+	docs = fetch_db_docs()
+	data = docs.find_one({"username": username})
+	return data
+
+def get_last_since_id(username):
+	id = 1
+	data = fetch_user_data(username)
 	if data != None and 'since_id' in data:
 		id = data['since_id']
 	return id
 
 def set_last_since_id(username, id):
-	client = MongoClient()
-	db = client['1self-twitter']
-	posts = db.posts
-	post = posts.find_one({"username": username})
-	if post == None:
-		post = {}
-	post["username"] = username
-	post["since_id"] = id
-	post["datetime"] = datetime.utcnow()
-	return posts.update({"username": username}, post, upsert=True)
+	doc = fetch_user_data(username)
+	if doc == None:
+		doc = {}
+	doc["username"] = username
+	doc["since_id"] = id
+	doc["datetime"] = datetime.utcnow()
+	return docs.update({"username": username}, doc, upsert=True)
 
 def fetch_oauth_tokens(username):
-	client = MongoClient()
-	db = client['1self-twitter']
-	posts = db.posts
-	data = posts.find_one({"username": username})
+	data = fetch_user_data(username)
 	if data != None and 'oauth_token' in data and 'oauth_token_secret' in data:
 		return data['oauth_token'], data['oauth_token_secret']
 	else:
 		return None
 
 def save_ouath_token(username, oauth_token, oauth_token_secret):
-	client = MongoClient()
-	db = client['1self-twitter']
-	posts = db.posts
-	post = posts.find_one({"username": username})
-	if post == None:
-		post = {}
-	post["username"] = username 
-	post["oauth_token"] = oauth_token
-	post["oauth_token_secret"] = oauth_token_secret
-	post["datetime"] = datetime.utcnow()
-	return posts.update({"username": username}, post, upsert=True)
+	doc = fetch_user_data(username)
+	if doc == None:
+		doc = {}
+	doc["username"] = username
+	doc["oauth_token"] = oauth_token
+	doc["oauth_token_secret"] = oauth_token_secret
+	doc["datetime"] = datetime.utcnow()
+	return fetch_db_docs().update({"username": username}, doc, upsert=True)
 
 def register_stream():
 	url = app.config['API_URL'] + "/v1/streams"
@@ -112,6 +110,9 @@ def build_graph_url(stream):
 
 	return url
 
+def increment(n):
+	return n + 1
+
 @app.route("/")
 def index():
 	return render_template("index.html")
@@ -143,7 +144,7 @@ def callback():
 	counts = {}
 	for date in dates:
 		if date in counts:
-			counts[date] = counts[date] + 1
+			counts[date] = increment(counts[date])
 		else:
 			counts[date] = 1
 
