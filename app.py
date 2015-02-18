@@ -36,6 +36,16 @@ def set_last_since_id(username, id):
 	post["datetime"] = datetime.utcnow()
 	return posts.update({"username": username}, post, upsert=True)
 
+def fetch_oauth_tokens(username):
+	client = MongoClient()
+	db = client['1self-twitter']
+	posts = db.posts
+	data = posts.find_one({"username": username})
+	if data != None and 'oauth_token' in data and 'oauth_token_secret' in data:
+		return data['oauth_token'], data['oauth_token_secret']
+	else:
+		return None
+
 def save_ouath_token(username, oauth_token, oauth_token_secret):
 	client = MongoClient()
 	db = client['1self-twitter']
@@ -139,9 +149,9 @@ def callback():
 
 	stream, status = register_stream()
 	print(send_batch_events(build_events(counts), stream))
-	print(build_graph_url(stream))
+	print(fetch_oauth_tokens(username))
 
-	return render_template("tweets.html", counts=counts, username=username)
+	return render_template("tweets.html", counts=counts, username=username, url=build_graph_url(stream))
 
 if __name__ == "__main__":
     app.run()
