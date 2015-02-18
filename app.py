@@ -69,6 +69,9 @@ def client_factory(key, secret, access_token=None, access_secret=None):
 def fetch_client_username(client):
 	return client.api.account.settings.get().data['screen_name']
 
+def fetch_client_followers_count(client):
+	return len(client.api.followers.ids.get().data.ids)
+
 def fetch_client_tweets(client, since_id=1):
 	return client.api.statuses.user_timeline.get(since_id=since_id)
 
@@ -87,7 +90,7 @@ def get_max_tweetId(tweets):
 	if len(ids) > 0:
 		return max(ids)
 	else:
-		return 1
+		return None
 
 def register_stream():
 	url = app.config['API_URL'] + "/v1/streams"
@@ -166,13 +169,15 @@ def callback():
 
 	####UPDATE LAST TWEET ID!
 	sync_id = get_max_tweetId(tweets)
-	save_last_since_id(username, sync_id)
+	if sync_id is not None:
+		save_last_since_id(username, sync_id)
 
 	counts = generate_tweet_counts(tweets)
 	stream, status = register_stream()
 	send_batch_events(build_events(counts), stream)
 	
 	print(load_oauth_tokens(username))
+	print(fetch_client_followers_count(client))
 
 	return render_template("tweets.html", counts=counts, username=username, url=build_graph_url(stream))
 
