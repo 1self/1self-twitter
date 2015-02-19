@@ -134,7 +134,6 @@ def send_event(event, stream):
 		return r.text, r.status_code
 
 def send_batch_events(events, stream):
-	print(stream['streamid'])
 	if len(events) == 0:
 		return None
 	url = app.config['API_URL'] + "/v1/streams/" + stream['streamid'] + "/events/batch"
@@ -177,12 +176,12 @@ def sync(username, lastSyncId, stream):
 	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET, token, secret)
 
 	startEvent = create_start_sync_event()
-	print(send_event(startEvent, stream))
+	send_event(startEvent, stream)
 	tweets = fetch_client_tweets(client, lastSyncId)
 	events = create_tweets_events(tweets)
-	print(send_batch_events(events, stream))
+	send_batch_events(events, stream)
 	endEvent = create_sync_complete_event()
-	print(send_event(endEvent, stream))
+	send_event(endEvent, stream)
 
 @app.route('/api/sync')
 def api_sync():
@@ -192,10 +191,6 @@ def api_sync():
 	writeToken = request.headers.get('authorization')
 
 	stream = {'streamid': streamId, 'writeToken': writeToken}
-	print("--------------")
-	print(stream)
-	print("--------------")
-
 	sync(username, lastSyncId, stream)
 
 	return "Sync complete", 200
@@ -210,7 +205,7 @@ def setup():
 	username = fetch_client_username(client)
 	save_ouath_token(username, token.oauth_token, token.oauth_token_secret)
 
-	callback_url = "http://127.0.0.1:5000" + url_for("api_sync") + "?username={{username}}&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
+	callback_url = "http://127.0.0.1:5000" + url_for("api_sync") + "?username="+username+"&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
 
 	stream, status = register_stream(callback_url)
 	sync(username, "1", stream)
