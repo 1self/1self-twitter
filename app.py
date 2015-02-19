@@ -1,8 +1,9 @@
-from flask import Flask, render_template, views, request, redirect
+from flask import Flask, render_template, request, redirect, url_for
 from birdy.twitter import UserClient
 from datetime import datetime
 from pymongo import MongoClient
 import requests, json
+import thread
 
 app = Flask(__name__)
 app.config.from_object('config')
@@ -73,59 +74,71 @@ def fetch_client_followers_count(client):
 	return len(client.api.followers.ids.get().data.ids)
 
 def fetch_client_tweets(client, since_id=1):
-	return client.api.statuses.user_timeline.get(since_id=since_id)
+	return client.api.statuses.user_timeline.get(since_id=since_id).data
 
-def generate_tweet_counts(tweets):
-	dates = [parse_created_at(tweet.created_at).date() for tweet in tweets.data]
-	counts = {}
-	for date in dates:
-		if date in counts:
-			counts[date] = increment(counts[date])
-		else:
-			counts[date] = 1
-	return counts
-
-def get_max_tweetId(tweets):
-	ids = [int(tweet.id) for tweet in tweets.data]
-	if len(ids) > 0:
-		return max(ids)
-	else:
-		return None
-
-def register_stream():
+def register_stream(callback_url=None):
 	url = app.config['API_URL'] + "/v1/streams"
 	app_id = app.config['APP_ID']
 	app_secret = app.config['APP_SECRET']
 	auth_string = app_id + ":" + app_secret
+	body=""
+	if callback_url is not None:
+		body = {"callbackUrl": callback_url}
 	headers = {"Authorization": auth_string}
-	r = requests.post(url, headers=headers)
+	r = requests.post(url, headers=headers, data=body)
 	try:
 		response = json.loads(r.text)
 		return response, r.status_code
 	except ValueError:
 		return r.text, r.status_code
 
-def build_events(counts):
-	if len(counts) == 0:
+def create_start_sync_event():
+	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["start"], "properties": {"source": "twitter"}}
+	return event
+
+def create_sync_complete_event():
+	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["complete"], "properties": {"source": "twitter"}}
+	return event
+
+def zeroPadNumber(num, length):
+	pad = length - len(str(num))
+	return "0"*pad + str(num)
+
+def create_tweets_events(tweets):
+	if len(tweets) == 0:
 		return []
 	events = []
 
-	for key in counts:
-		date = key.isoformat()
+	for tweet in tweets:
+		date = parse_created_at(tweet.created_at).isoformat()
 		event = {}
 		event['source'] = app.config['APP_NAME']
 		event['version'] = app.config['APP_VERSION']
 		event['actionTags'] = app.config['ACTION_TAGS']
 		event['objectTags'] = app.config['OBJECT_TAGS']
 		event['dateTime'] = date
-		event['properties'] = {"count": counts[key]}
+		event['properties'] = {"retweets": tweet['retweet_count'], "favorites": tweet[u'favorite_count']}
+		#Sort numbers as padded strings to avoid mongo precision limits
+		event['latestSyncField'] = zeroPadNumber(tweet.id, 25)
 		events.append(event)
 	return events
 
+def send_event(event, stream):
+	url = app.config['API_URL'] + "/v1/streams/" + stream['streamid'] + "/events"
+	headers = {"Authorization": stream['writeToken'], "Content-Type": "application/json"}
+	r = requests.post(url, data=json.dumps(event), headers=headers)
+	try:
+		response = json.loads(r.text)
+		return response, r.status_code
+	except ValueError:
+		return r.text, r.status_code
+
 def send_batch_events(events, stream):
+	print(stream['streamid'])
 	if len(events) == 0:
 		return None
 	url = app.config['API_URL'] + "/v1/streams/" + stream['streamid'] + "/events/batch"
+	print(url)
 	headers = {"Authorization": stream['writeToken'], "Content-Type": "application/json"}
 	r = requests.post(url, data=json.dumps(events), headers=headers)
 	try:
@@ -140,15 +153,11 @@ def build_graph_url(stream):
 	def strigify_tags(tags):
 		return str(",".join(tags))
 
-	url = app.config['API_URL'] + u"/v1/streams/" + stream['streamid'] + "/events/tweets/tweet/sum(count)/daily/barchart?readToken=" + stream['readToken'] + "&bgColor=00acee";
+	url = app.config['API_URL'] + u"/v1/streams/" + stream['streamid'] + "/events/tweets/tweet/count/daily/barchart?readToken=" + stream['readToken'] + "&bgColor=00acee";
 	return url
 
 @app.route("/")
 def index():
-	return render_template("index.html")
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
 	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET)
 	token = client.get_signin_token(CALLBACK_URL)
 	app.config['ACCESS_TOKEN'] = token.oauth_token
@@ -157,6 +166,42 @@ def login():
 
 @app.route('/callback')
 def callback():
+	return redirect(url_for('setup', **request.args))
+
+def sync(username, lastSyncId, stream):
+	try:
+		token, secret = load_oauth_tokens(username)
+	except TypeError:
+		return "Auth error", 401
+
+	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET, token, secret)
+
+	startEvent = create_start_sync_event()
+	print(send_event(startEvent, stream))
+	tweets = fetch_client_tweets(client, lastSyncId)
+	events = create_tweets_events(tweets)
+	print(send_batch_events(events, stream))
+	endEvent = create_sync_complete_event()
+	print(send_event(endEvent, stream))
+
+@app.route('/api/sync')
+def api_sync():
+	username = request.args.get('username')
+	lastSyncId = request.args.get('latestSyncField')
+	streamId = request.args.get('streamid')
+	writeToken = request.headers.get('authorization')
+
+	stream = {'streamid': streamId, 'writeToken': writeToken}
+	print("--------------")
+	print(stream)
+	print("--------------")
+
+	sync(username, lastSyncId, stream)
+
+	return "Sync complete", 200
+
+@app.route('/api/setup')
+def setup():
 	OAUTH_VERIFIER = request.args.get('oauth_verifier')
 	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET,
 		app.config['ACCESS_TOKEN'], app.config['ACCESS_TOKEN_SECRET'])
@@ -164,22 +209,13 @@ def callback():
 
 	username = fetch_client_username(client)
 	save_ouath_token(username, token.oauth_token, token.oauth_token_secret)
-	
-	tweets = fetch_client_tweets(client, load_last_since_id(username))
 
-	####UPDATE LAST TWEET ID!
-	sync_id = get_max_tweetId(tweets)
-	if sync_id is not None:
-		save_last_since_id(username, sync_id)
+	callback_url = "http://127.0.0.1:5000" + url_for("api_sync") + "?username={{username}}&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
 
-	counts = generate_tweet_counts(tweets)
-	stream, status = register_stream()
-	send_batch_events(build_events(counts), stream)
-	
-	print(load_oauth_tokens(username))
-	print(fetch_client_followers_count(client))
+	stream, status = register_stream(callback_url)
+	sync(username, "1", stream)
 
-	return render_template("tweets.html", counts=counts, username=username, url=build_graph_url(stream))
+	return "Setup ok", 200
 
 if __name__ == "__main__":
     app.run()
