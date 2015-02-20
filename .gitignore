@@ -1,3 +1,3 @@
 env
-config.pyc
+*.pyc
 development.env
