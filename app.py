@@ -10,8 +10,9 @@ app.config.from_object('config')
 
 CONSUMER_KEY = app.config['CONSUMER_KEY']
 CONSUMER_SECRET = app.config['CONSUMER_SECRET']
-CALLBACK_URL = app.config['CALLBACK_URL']
 HOST_ADDRESS = app.config['HOST_ADDRESS']
+PORT=app.config['PORT']
+CALLBACK_URL = HOST_ADDRESS + ":" + str(PORT) + "/callback"
 API_URL = app.config['API_URL']
 MONGO_URI = app.config['MONGO_URI']
 
@@ -234,4 +235,4 @@ def setup():
 	return redirect(dashboard)
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', port=PORT)

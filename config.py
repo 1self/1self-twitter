@@ -21,6 +21,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 #Hosting
 HOST_ADDRESS = os.getenv('HOST_ADDRESS')
+PORT = int(os.getenv('PORT', 5000))
 
 #Twitter credentials
 CONSUMER_KEY = os.getenv('CONSUMER_KEY')
