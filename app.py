@@ -11,6 +11,7 @@ app.config.from_object('config')
 CONSUMER_KEY = app.config['CONSUMER_KEY']
 CONSUMER_SECRET = app.config['CONSUMER_SECRET']
 CALLBACK_URL = app.config['CALLBACK_URL']
+HOST_ADDRESS = app.config['HOST_ADDRESS']
 
 def increment(n):
 	return n + 1
@@ -100,11 +101,15 @@ def create_sync_complete_event():
 	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["complete"], "properties": {"source": "twitter"}}
 	return event
 
-def zeroPadNumber(num, length):
-	pad = length - len(str(num))
-	return "0"*pad + str(num)
+def create_sync_error_event(status):
+	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["Error"], "properties": {"source": "twitter", "code": status}}
+	return event
 
 def create_tweets_events(tweets):
+	def zeroPadNumber(num, length):
+		pad = length - len(str(num))
+		return "0"*pad + str(num)
+	
 	if len(tweets) == 0:
 		return []
 	events = []
@@ -137,7 +142,6 @@ def send_batch_events(events, stream):
 	if len(events) == 0:
 		return None
 	url = app.config['API_URL'] + "/v1/streams/" + stream['streamid'] + "/events/batch"
-	print(url)
 	headers = {"Authorization": stream['writeToken'], "Content-Type": "application/json"}
 	r = requests.post(url, data=json.dumps(events), headers=headers)
 	try:
@@ -171,7 +175,9 @@ def sync(username, lastSyncId, stream):
 	try:
 		token, secret = load_oauth_tokens(username)
 	except TypeError:
-		return "Auth error", 401
+		errorEvent = create_sync_error_event(401)
+		send_event(errorEvent, stream)
+		return 401
 
 	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET, token, secret)
 
@@ -182,6 +188,7 @@ def sync(username, lastSyncId, stream):
 	send_batch_events(events, stream)
 	endEvent = create_sync_complete_event()
 	send_event(endEvent, stream)
+	return 200
 
 @app.route('/api/sync')
 def api_sync():
@@ -191,9 +198,14 @@ def api_sync():
 	writeToken = request.headers.get('authorization')
 
 	stream = {'streamid': streamId, 'writeToken': writeToken}
-	sync(username, lastSyncId, stream)
+	
+	def unpad_zero(id):
+		return id.lstrip('0')
 
-	return "Sync complete", 200
+	thread.start_new_thread(sync, (username, unpad_zero(lastSyncId), stream))
+	print(build_graph_url(stream))
+
+	return "Sync", 200
 
 @app.route('/api/setup')
 def setup():
@@ -205,12 +217,13 @@ def setup():
 	username = fetch_client_username(client)
 	save_ouath_token(username, token.oauth_token, token.oauth_token_secret)
 
-	callback_url = "http://127.0.0.1:5000" + url_for("api_sync") + "?username="+username+"&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
+	callback_url = HOST_ADDRESS + url_for("api_sync") + "?username=" + username + "&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
 
 	stream, status = register_stream(callback_url)
-	sync(username, "1", stream)
+	thread.start_new_thread(sync, (username, "1", stream))
+	print(build_graph_url(stream))
 
-	return "Setup ok", 200
+	return render_template("tweets.html", url=build_graph_url(stream))
 
 if __name__ == "__main__":
     app.run()
