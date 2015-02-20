@@ -1,5 +1,6 @@
 birdy==0.2
 Flask==0.10.1
+gunicorn==19.2.1
 itsdangerous==0.24
 Jinja2==2.7.3
 MarkupSafe==0.23
@@ -8,3 +9,4 @@ pymongo==2.8
 requests==2.5.1
 requests-oauthlib==0.4.2
 Werkzeug==0.10.1
+zope.interface==4.1.2
