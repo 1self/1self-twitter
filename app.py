@@ -13,6 +13,7 @@ CONSUMER_SECRET = app.config['CONSUMER_SECRET']
 HOST_ADDRESS = app.config['HOST_ADDRESS']
 PORT=app.config['PORT']
 CALLBACK_URL = app.config['CALLBACK_URL'] or HOST_ADDRESS + ":" + str(PORT) + "/callback"
+print(CALLBACK_URL)
 API_URL = app.config['API_URL']
 MONGO_URI = app.config['MONGO_URI']
 
