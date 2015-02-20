@@ -13,6 +13,7 @@ CONSUMER_SECRET = app.config['CONSUMER_SECRET']
 CALLBACK_URL = app.config['CALLBACK_URL']
 HOST_ADDRESS = app.config['HOST_ADDRESS']
 API_URL = app.config['API_URL']
+MONGO_URI = app.config['MONGO_URI']
 
 def increment(n):
 	return n + 1
@@ -21,7 +22,7 @@ def parse_created_at(created_at):
 	return datetime.strptime(created_at, '%a %b %d %H:%M:%S +0000 %Y')
 
 def load_db_docs():
-	client = MongoClient()
+	client = MongoClient(MONGO_URI)
 	db = client['1self-twitter']
 	return db.docs
 
