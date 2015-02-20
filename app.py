@@ -12,6 +12,7 @@ CONSUMER_KEY = app.config['CONSUMER_KEY']
 CONSUMER_SECRET = app.config['CONSUMER_SECRET']
 CALLBACK_URL = app.config['CALLBACK_URL']
 HOST_ADDRESS = app.config['HOST_ADDRESS']
+API_URL = app.config['API_URL']
 
 def increment(n):
 	return n + 1
@@ -78,7 +79,7 @@ def fetch_client_tweets(client, since_id=1):
 	return client.api.statuses.user_timeline.get(since_id=since_id).data
 
 def register_stream(callback_url=None):
-	url = app.config['API_URL'] + "/v1/streams"
+	url = API_URL + "/v1/streams"
 	app_id = app.config['APP_ID']
 	app_secret = app.config['APP_SECRET']
 	auth_string = app_id + ":" + app_secret
@@ -129,7 +130,7 @@ def create_tweets_events(tweets):
 	return events
 
 def send_event(event, stream):
-	url = app.config['API_URL'] + "/v1/streams/" + stream['streamid'] + "/events"
+	url = API_URL + "/v1/streams/" + stream['streamid'] + "/events"
 	headers = {"Authorization": stream['writeToken'], "Content-Type": "application/json"}
 	r = requests.post(url, data=json.dumps(event), headers=headers)
 	try:
@@ -141,7 +142,7 @@ def send_event(event, stream):
 def send_batch_events(events, stream):
 	if len(events) == 0:
 		return None
-	url = app.config['API_URL'] + "/v1/streams/" + stream['streamid'] + "/events/batch"
+	url = API_URL + "/v1/streams/" + stream['streamid'] + "/events/batch"
 	headers = {"Authorization": stream['writeToken'], "Content-Type": "application/json"}
 	r = requests.post(url, data=json.dumps(events), headers=headers)
 	try:
@@ -156,7 +157,7 @@ def build_graph_url(stream):
 	def strigify_tags(tags):
 		return str(",".join(tags))
 
-	url = app.config['API_URL'] + u"/v1/streams/" + stream['streamid'] + "/events/tweets/tweet/count/daily/barchart?readToken=" + stream['readToken'] + "&bgColor=00acee";
+	url = API_URL + u"/v1/streams/" + stream['streamid'] + "/events/tweets/tweet/count/daily/barchart?readToken=" + stream['readToken'] + "&bgColor=00acee";
 	return url
 
 @app.route("/")
@@ -220,10 +221,16 @@ def setup():
 	callback_url = HOST_ADDRESS + url_for("api_sync") + "?username=" + username + "&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
 
 	stream, status = register_stream(callback_url)
+	if status is not 200:
+		return stream, status
+
 	thread.start_new_thread(sync, (username, "1", stream))
 	print(build_graph_url(stream))
 
-	return render_template("tweets.html", url=build_graph_url(stream))
+	#return render_template("tweets.html", url=build_graph_url(stream))
+	dashboard = API_URL + "/dashboard?streamId=" + stream['streamid'] + "&readToken=" + stream['readToken']
+	print(dashboard)
+	return redirect(dashboard)
 
 if __name__ == "__main__":
-    app.run()
+    app.run(port=5002)
