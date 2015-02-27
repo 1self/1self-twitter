@@ -24,14 +24,14 @@ def increment(n):
 def parse_created_at(created_at):
 	return datetime.strptime(created_at, '%a %b %d %H:%M:%S +0000 %Y')
 
-def load_db_docs():
+def load_db_users():
 	client = MongoClient(MONGO_URI)
-	db = client['1self-twitter']
-	return db.docs
+	db = client.get_default_database()
+	return db.users
 
 def load_user_data(username):
-	docs = load_db_docs()
-	data = docs.find_one({"username": username})
+	users = load_db_users()
+	data = users.find_one({"username": username})
 	return data
 
 def load_last_since_id(username):
@@ -42,13 +42,13 @@ def load_last_since_id(username):
 	return id
 
 def save_last_since_id(username, id):
-	doc = load_user_data(username)
-	if doc == None:
-		doc = {}
-	doc["username"] = username
-	doc["since_id"] = id
-	doc["datetime"] = datetime.utcnow()
-	return load_db_docs().update({"username": username}, doc, upsert=True)
+	user = load_user_data(username)
+	if user is None:
+		user = {}
+	user["username"] = username
+	user["since_id"] = id
+	user["datetime"] = datetime.utcnow()
+	return load_db_users().update({"username": username}, user, upsert=True)
 
 def load_oauth_tokens(username):
 	data = load_user_data(username)
@@ -58,14 +58,14 @@ def load_oauth_tokens(username):
 		return None
 
 def save_ouath_token(username, oauth_token, oauth_token_secret):
-	doc = load_user_data(username)
-	if doc == None:
-		doc = {}
-	doc["username"] = username
-	doc["oauth_token"] = oauth_token
-	doc["oauth_token_secret"] = oauth_token_secret
-	doc["datetime"] = datetime.utcnow()
-	return load_db_docs().update({"username": username}, doc, upsert=True)
+	user = load_user_data(username)
+	if user is None:
+		user = {}
+	user["username"] = username
+	user["oauth_token"] = oauth_token
+	user["oauth_token_secret"] = oauth_token_secret
+	user["datetime"] = datetime.utcnow()
+	return load_db_users().update({"username": username}, user, upsert=True)
 
 def client_factory(key, secret, access_token=None, access_secret=None):
 	if access_token is not None and access_secret is not None:

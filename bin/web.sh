@@ -2,7 +2,7 @@
 
 if [ "$FLASK_ENV" = "development" ]
 then
-        python app.py
+        env/bin/python app.py
 else
         gunicorn app:app
 fi

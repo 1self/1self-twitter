@@ -10,7 +10,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 THREADS_PER_PAGE = int(os.getenv('THREADS_PER_PAGE'))
 
 # Enable protection agains *Cross-site Request Forgery (CSRF)*
-CSRF_ENABLED     = bool(os.getenv('CSRF_ENABLED'))
+CSRF_ENABLED = bool(os.getenv('CSRF_ENABLED'))
 
 # Use a secure, unique and absolutely secret key for
 # signing the data. 
