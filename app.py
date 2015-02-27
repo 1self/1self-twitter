@@ -15,6 +15,7 @@ PORT=app.config['PORT']
 CALLBACK_URL = app.config['CALLBACK_URL'] or HOST_ADDRESS + ":" + str(PORT) + "/callback"
 print(CALLBACK_URL)
 API_URL = app.config['API_URL']
+APP_URL = app.config['APP_URL']
 MONGO_URI = app.config['MONGO_URI']
 
 def increment(n):
@@ -240,7 +241,7 @@ def setup():
 	print(build_graph_url(stream))
 
 	#return render_template("tweets.html", url=build_graph_url(stream))
-	integrations_url = API_URL + "/integrations"
+	integrations_url = APP_URL + "/integrations"
 	print(integrations_url)
 	return redirect(integrations_url)
 
