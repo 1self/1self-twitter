@@ -13,7 +13,6 @@ CONSUMER_SECRET = app.config['CONSUMER_SECRET']
 HOST_ADDRESS = app.config['HOST_ADDRESS']
 PORT=app.config['PORT']
 CALLBACK_URL = app.config['CALLBACK_URL'] or HOST_ADDRESS + ":" + str(PORT) + "/callback"
-print(CALLBACK_URL)
 API_URL = app.config['API_URL']
 MONGO_URI = app.config['MONGO_URI']
 
@@ -97,12 +96,12 @@ def register_stream(callback_url=None):
 	except ValueError:
 		return r.text, r.status_code
 
-def create_start_sync_event():
-	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["start"], "properties": {"source": "twitter"}}
+def create_start_sync_event(source):
+	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["start"], "properties": {"source": source}}
 	return event
 
-def create_sync_complete_event():
-	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["complete"], "properties": {"source": "twitter"}}
+def create_sync_complete_event(source):
+	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["complete"], "properties": {"source": source}}
 	return event
 
 def create_sync_error_event(status):
@@ -185,12 +184,12 @@ def sync(username, lastSyncId, stream):
 
 	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET, token, secret)
 
-	startEvent = create_start_sync_event()
+	startEvent = create_start_sync_event(source="twitter")
 	send_event(startEvent, stream)
 	tweets = fetch_client_tweets(client, lastSyncId)
 	events = create_tweets_events(tweets)
 	send_batch_events(events, stream)
-	endEvent = create_sync_complete_event()
+	endEvent = create_sync_complete_event(source="twitter")
 	send_event(endEvent, stream)
 	return 200
 
