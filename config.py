@@ -1,6 +1,7 @@
-DEBUG = True
-
 import os
+
+DEBUG = bool(os.getenv('DEBUG')) or False
+
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # Application threads. A common general assumption is
@@ -10,7 +11,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 THREADS_PER_PAGE = int(os.getenv('THREADS_PER_PAGE'))
 
 # Enable protection agains *Cross-site Request Forgery (CSRF)*
-CSRF_ENABLED     = bool(os.getenv('CSRF_ENABLED'))
+CSRF_ENABLED = bool(os.getenv('CSRF_ENABLED'))
 
 # Use a secure, unique and absolutely secret key for
 # signing the data. 
@@ -35,6 +36,7 @@ ACTION_TAGS = ["tweet"]
 OBJECT_TAGS = ["tweets"]
 
 API_URL = os.getenv('API_URL')
+APP_URL = os.getenv('APP_URL')
 APP_ID = os.getenv('APP_ID')
 APP_SECRET = os.getenv('APP_SECRET')
 

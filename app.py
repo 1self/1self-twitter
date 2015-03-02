@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, session, redirect, url_for
 from birdy.twitter import UserClient
 from datetime import datetime
 from pymongo import MongoClient
@@ -14,7 +14,9 @@ HOST_ADDRESS = app.config['HOST_ADDRESS']
 PORT=app.config['PORT']
 CALLBACK_URL = app.config['CALLBACK_URL'] or HOST_ADDRESS + ":" + str(PORT) + "/callback"
 API_URL = app.config['API_URL']
+APP_URL = app.config['APP_URL']
 MONGO_URI = app.config['MONGO_URI']
+app.config['DEBUG'] = False
 
 def increment(n):
 	return n + 1
@@ -22,14 +24,14 @@ def increment(n):
 def parse_created_at(created_at):
 	return datetime.strptime(created_at, '%a %b %d %H:%M:%S +0000 %Y')
 
-def load_db_docs():
+def load_db_users():
 	client = MongoClient(MONGO_URI)
-	db = client['1self-twitter']
-	return db.docs
+	db = client.get_default_database()
+	return db.users
 
 def load_user_data(username):
-	docs = load_db_docs()
-	data = docs.find_one({"username": username})
+	users = load_db_users()
+	data = users.find_one({"username": username})
 	return data
 
 def load_last_since_id(username):
@@ -40,13 +42,13 @@ def load_last_since_id(username):
 	return id
 
 def save_last_since_id(username, id):
-	doc = load_user_data(username)
-	if doc == None:
-		doc = {}
-	doc["username"] = username
-	doc["since_id"] = id
-	doc["datetime"] = datetime.utcnow()
-	return load_db_docs().update({"username": username}, doc, upsert=True)
+	user = load_user_data(username)
+	if user is None:
+		user = {}
+	user["username"] = username
+	user["since_id"] = id
+	user["datetime"] = datetime.utcnow()
+	return load_db_users().update({"username": username}, user, upsert=True)
 
 def load_oauth_tokens(username):
 	data = load_user_data(username)
@@ -56,14 +58,14 @@ def load_oauth_tokens(username):
 		return None
 
 def save_ouath_token(username, oauth_token, oauth_token_secret):
-	doc = load_user_data(username)
-	if doc == None:
-		doc = {}
-	doc["username"] = username
-	doc["oauth_token"] = oauth_token
-	doc["oauth_token_secret"] = oauth_token_secret
-	doc["datetime"] = datetime.utcnow()
-	return load_db_docs().update({"username": username}, doc, upsert=True)
+	user = load_user_data(username)
+	if user is None:
+		user = {}
+	user["username"] = username
+	user["oauth_token"] = oauth_token
+	user["oauth_token_secret"] = oauth_token_secret
+	user["datetime"] = datetime.utcnow()
+	return load_db_users().update({"username": username}, user, upsert=True)
 
 def client_factory(key, secret, access_token=None, access_secret=None):
 	if access_token is not None and access_secret is not None:
@@ -80,15 +82,15 @@ def fetch_client_followers_count(client):
 def fetch_client_tweets(client, since_id=1):
 	return client.api.statuses.user_timeline.get(since_id=since_id).data
 
-def register_stream(callback_url=None):
-	url = API_URL + "/v1/streams"
+def register_stream(oneself_username, registration_token, callback_url=None):
+	url = API_URL + "/v1/users/" + oneself_username + "/streams"
 	app_id = app.config['APP_ID']
 	app_secret = app.config['APP_SECRET']
 	auth_string = app_id + ":" + app_secret
 	body=""
 	if callback_url is not None:
-		body = {"callbackUrl": callback_url}
-	headers = {"Authorization": auth_string}
+		body = json.dumps({"callbackUrl": callback_url})
+	headers = {"Authorization": auth_string, "registration-token": registration_token, "Content-Type": "application/json"}
 	r = requests.post(url, headers=headers, data=body)
 	try:
 		response = json.loads(r.text)
@@ -164,6 +166,10 @@ def build_graph_url(stream):
 
 @app.route("/")
 def index():
+	oneself_username = request.args.get('username')
+	registration_token = request.args.get('token')
+	session['oneself_username'] = oneself_username
+	session['registration_token'] = registration_token
 	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET)
 	token = client.get_signin_token(CALLBACK_URL)
 	app.config['ACCESS_TOKEN'] = token.oauth_token
@@ -212,6 +218,7 @@ def api_sync():
 
 @app.route('/api/setup')
 def setup():
+	print("in setup")
 	OAUTH_VERIFIER = request.args.get('oauth_verifier')
 	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET,
 		app.config['ACCESS_TOKEN'], app.config['ACCESS_TOKEN_SECRET'])
@@ -222,7 +229,11 @@ def setup():
 
 	callback_url = HOST_ADDRESS + url_for("api_sync") + "?username=" + username + "&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
 
-	stream, status = register_stream(callback_url)
+	oneself_username = session['oneself_username']
+	registration_token = session['registration_token']
+	print(oneself_username)
+	print(registration_token)
+	stream, status = register_stream(oneself_username, registration_token, callback_url)
 	if status is not 200:
 		return stream, status
 
@@ -230,9 +241,9 @@ def setup():
 	print(build_graph_url(stream))
 
 	#return render_template("tweets.html", url=build_graph_url(stream))
-	dashboard = API_URL + "/dashboard?streamId=" + stream['streamid'] + "&readToken=" + stream['readToken']
-	print(dashboard)
-	return redirect(dashboard)
+	integrations_url = APP_URL + "/integrations"
+	print(integrations_url)
+	return redirect(integrations_url)
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=PORT)
+    app.run(port=PORT)
