@@ -17,6 +17,7 @@ print(CALLBACK_URL)
 API_URL = app.config['API_URL']
 APP_URL = app.config['APP_URL']
 MONGO_URI = app.config['MONGO_URI']
+app.config['DEBUG'] = False
 
 def increment(n):
 	return n + 1
