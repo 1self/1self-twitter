@@ -1,6 +1,7 @@
-DEBUG = True
-
 import os
+
+DEBUG = bool(os.getenv('DEBUG')) or False
+
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # Application threads. A common general assumption is
