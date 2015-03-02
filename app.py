@@ -190,12 +190,12 @@ def sync(username, lastSyncId, stream):
 
 	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET, token, secret)
 
-	startEvent = create_start_sync_event(source="twitter")
+	startEvent = create_start_sync_event(source="1self-twitter")
 	send_event(startEvent, stream)
 	tweets = fetch_client_tweets(client, lastSyncId)
 	events = create_tweets_events(tweets)
 	send_batch_events(events, stream)
-	endEvent = create_sync_complete_event(source="twitter")
+	endEvent = create_sync_complete_event(source="1self-twitter")
 	send_event(endEvent, stream)
 	return 200
 
