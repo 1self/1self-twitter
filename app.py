@@ -218,31 +218,30 @@ def api_sync():
 
 @app.route('/api/setup')
 def setup():
-	print("in setup")
-	OAUTH_VERIFIER = request.args.get('oauth_verifier')
-	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET,
-		app.config['ACCESS_TOKEN'], app.config['ACCESS_TOKEN_SECRET'])
-	token = client.get_access_token(OAUTH_VERIFIER)
+	integrations_url = APP_URL + "/integrations"
+	try:
+		OAUTH_VERIFIER = request.args.get('oauth_verifier')
+		client = client_factory(CONSUMER_KEY, CONSUMER_SECRET,
+			app.config['ACCESS_TOKEN'], app.config['ACCESS_TOKEN_SECRET'])
+		token = client.get_access_token(OAUTH_VERIFIER)
 
-	username = fetch_client_username(client)
-	save_ouath_token(username, token.oauth_token, token.oauth_token_secret)
+		username = fetch_client_username(client)
+		save_ouath_token(username, token.oauth_token, token.oauth_token_secret)
 
-	callback_url = HOST_ADDRESS + url_for("api_sync") + "?username=" + username + "&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
+		callback_url = HOST_ADDRESS + url_for("api_sync") + "?username=" + username + "&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
 
-	oneself_username = session['oneself_username']
-	registration_token = session['registration_token']
-	print(oneself_username)
-	print(registration_token)
-	stream, status = register_stream(oneself_username, registration_token, callback_url)
-	if status is not 200:
-		return stream, status
+		oneself_username = session['oneself_username']
+		registration_token = session['registration_token']
+		stream, status = register_stream(oneself_username, registration_token, callback_url)
+		if status is not 200:
+			return stream, status
 
-	thread.start_new_thread(sync, (username, "1", stream))
-	print(build_graph_url(stream))
+		thread.start_new_thread(sync, (username, "1", stream))
+		print(build_graph_url(stream))
+	except Exception:
+		print("OAuth error/denied")
 
 	#return render_template("tweets.html", url=build_graph_url(stream))
-	integrations_url = APP_URL + "/integrations"
-	print(integrations_url)
 	return redirect(integrations_url)
 
 if __name__ == "__main__":
