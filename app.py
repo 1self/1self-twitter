@@ -107,7 +107,7 @@ def create_sync_complete_event(source):
 	return event
 
 def create_sync_error_event(status):
-	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["Error"], "properties": {"source": "twitter", "code": status}}
+	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["Error"], "properties": {"source": "1self-twitter", "code": status}}
 	return event
 
 def create_tweets_events(tweets):
@@ -127,7 +127,7 @@ def create_tweets_events(tweets):
 		event['actionTags'] = app.config['ACTION_TAGS']
 		event['objectTags'] = app.config['OBJECT_TAGS']
 		event['dateTime'] = date
-		event['properties'] = {"retweets": tweet['retweet_count'], "favorites": tweet[u'favorite_count']}
+		event['properties'] = {"retweets": tweet['retweet_count'], "favorites": tweet[u'favorite_count'], "social-network": "twitter"}
 		#Sort numbers as padded strings to avoid mongo precision limits
 		event['latestSyncField'] = zeroPadNumber(tweet.id, 25)
 		events.append(event)

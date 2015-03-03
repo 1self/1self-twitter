@@ -32,7 +32,7 @@ CALLBACK_URL = os.getenv('CALLBACK_URL')
 #1self credentials
 APP_NAME = "1self-twitter"
 APP_VERSION = "0.0.1"
-ACTION_TAGS = ["tweet"]
+ACTION_TAGS = ["publish"]
 OBJECT_TAGS = ["tweets"]
 
 API_URL = os.getenv('API_URL')
