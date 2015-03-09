@@ -3,7 +3,7 @@ from birdy.twitter import UserClient
 from datetime import datetime
 from pymongo import MongoClient
 import requests, json
-import thread
+import thread, sys
 
 app = Flask(__name__)
 app.config.from_object('config')
@@ -161,7 +161,7 @@ def build_graph_url(stream):
 	def strigify_tags(tags):
 		return str(",".join(tags))
 
-	url = API_URL + u"/v1/streams/" + stream['streamid'] + "/events/tweets/tweet/count/daily/barchart?readToken=" + stream['readToken'] + "&bgColor=00acee";
+	url = API_URL + u"/v1/streams/" + stream['streamid'] + "/events/" + strigify_tags(objectTags) +"/" + strigify_tags(actionTags) +"/count/daily/barchart?readToken=" + stream['readToken'] + "&bgColor=00acee";
 	return url
 
 @app.route("/")
@@ -172,8 +172,8 @@ def index():
 	session['registration_token'] = registration_token
 	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET)
 	token = client.get_signin_token(CALLBACK_URL)
-	app.config['ACCESS_TOKEN'] = token.oauth_token
-	app.config['ACCESS_TOKEN_SECRET'] = token.oauth_token_secret
+	session['ACCESS_TOKEN'] = token.oauth_token
+	session['ACCESS_TOKEN_SECRET'] = token.oauth_token_secret
 	return redirect(token.auth_url)
 
 @app.route('/callback')
@@ -183,20 +183,22 @@ def callback():
 def sync(username, lastSyncId, stream):
 	try:
 		token, secret = load_oauth_tokens(username)
-	except TypeError:
+
+		client = client_factory(CONSUMER_KEY, CONSUMER_SECRET, token, secret)
+
+		startEvent = create_start_sync_event(source="1self-twitter")
+		send_event(startEvent, stream)
+		tweets = fetch_client_tweets(client, lastSyncId)
+		events = create_tweets_events(tweets)
+		send_batch_events(events, stream)
+		endEvent = create_sync_complete_event(source="1self-twitter")
+		send_event(endEvent, stream)
+
+	except:
 		errorEvent = create_sync_error_event(401)
 		send_event(errorEvent, stream)
 		return 401
 
-	client = client_factory(CONSUMER_KEY, CONSUMER_SECRET, token, secret)
-
-	startEvent = create_start_sync_event(source="1self-twitter")
-	send_event(startEvent, stream)
-	tweets = fetch_client_tweets(client, lastSyncId)
-	events = create_tweets_events(tweets)
-	send_batch_events(events, stream)
-	endEvent = create_sync_complete_event(source="1self-twitter")
-	send_event(endEvent, stream)
 	return 200
 
 @app.route('/api/sync')
@@ -204,7 +206,7 @@ def api_sync():
 	username = request.args.get('username')
 	lastSyncId = request.args.get('latestSyncField')
 	streamId = request.args.get('streamid')
-	writeToken = request.headers.get('authorization')
+	writeToken = request.headers.get('Authorization')
 
 	stream = {'streamid': streamId, 'writeToken': writeToken}
 	
@@ -212,17 +214,16 @@ def api_sync():
 		return id.lstrip('0')
 
 	thread.start_new_thread(sync, (username, unpad_zero(lastSyncId), stream))
-	print(build_graph_url(stream))
 
 	return "Sync", 200
 
 @app.route('/api/setup')
 def setup():
 	integrations_url = APP_URL + "/integrations"
+	
 	try:
 		OAUTH_VERIFIER = request.args.get('oauth_verifier')
-		client = client_factory(CONSUMER_KEY, CONSUMER_SECRET,
-			app.config['ACCESS_TOKEN'], app.config['ACCESS_TOKEN_SECRET'])
+		client = client_factory(CONSUMER_KEY, CONSUMER_SECRET, session['ACCESS_TOKEN'], session['ACCESS_TOKEN_SECRET'])
 		token = client.get_access_token(OAUTH_VERIFIER)
 
 		username = fetch_client_username(client)
@@ -238,8 +239,9 @@ def setup():
 
 		thread.start_new_thread(sync, (username, "1", stream))
 		print(build_graph_url(stream))
-	except Exception:
-		print("OAuth error/denied")
+	except:
+		print("Auth error")
+	
 
 	#return render_template("tweets.html", url=build_graph_url(stream))
 	return redirect(integrations_url)
