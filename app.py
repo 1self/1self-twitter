@@ -4,6 +4,8 @@ from datetime import datetime
 from pymongo import MongoClient
 import requests, json
 import thread, sys
+import collections
+import functools
 
 app = Flask(__name__)
 app.config.from_object('config')
@@ -16,7 +18,33 @@ CALLBACK_URL = app.config['CALLBACK_URL'] or HOST_ADDRESS + "/callback"
 API_URL = app.config['API_URL']
 APP_URL = app.config['APP_URL']
 MONGO_URI = app.config['MONGO_URI']
-app.config['DEBUG'] = False
+app.config['DEBUG'] = True
+
+class memoized(object):
+   '''Decorator. Caches a function's return value each time it is called.
+   If called later with the same arguments, the cached value is returned
+   (not reevaluated).
+   '''
+   def __init__(self, func):
+      self.func = func
+      self.cache = {}
+   def __call__(self, *args):
+      if not isinstance(args, collections.Hashable):
+         # uncacheable. a list, for instance.
+         # better to not cache than blow up.
+         return self.func(*args)
+      if args in self.cache:
+         return self.cache[args]
+      else:
+         value = self.func(*args)
+         self.cache[args] = value
+         return value
+   def __repr__(self):
+      '''Return the function's docstring.'''
+      return self.func.__doc__
+   def __get__(self, obj, objtype):
+      '''Support instance methods.'''
+      return functools.partial(self.__call__, obj)
 
 def increment(n):
 	return n + 1
@@ -73,11 +101,18 @@ def client_factory(key, secret, access_token=None, access_secret=None):
 	else:
 		return UserClient(key, secret)
 
+@memoized
 def fetch_client_username(client):
 	return client.api.account.settings.get().data['screen_name']
 
+def fetch_client_profile(client):
+	return client.api.users.show.get(screen_name=fetch_client_username(client)).data
+
 def fetch_client_followers_count(client):
-	return len(client.api.followers.ids.get().data.ids)
+	return fetch_client_profile(client)['followers_count']
+
+def fetch_client_friends_count(client):
+	return fetch_client_profile(client)['friends_count']
 
 def fetch_client_tweets(client, since_id=1):
 	return client.api.statuses.user_timeline.get(since_id=since_id).data
@@ -136,6 +171,22 @@ def create_tweets_events(tweets):
 		events.append(event)
 	return events
 
+def create_follower_count_event(count):
+	def zeroPadNumber(num, length):
+		pad = length - len(str(num))
+		return "0"*pad + str(num)
+
+	event = {}
+	event['source'] = app.config['APP_NAME']
+	event['version'] = app.config['APP_VERSION']
+	event['actionTags'] = ["followed-by"]
+	event['objectTags'] = ["internet", "social-network", "twitter", "followers"]
+	event['dateTime'] = datetime.utcnow().isoformat()
+	event['properties'] = {"count": count}
+	#Sort numbers as padded strings to avoid mongo precision limits
+	event['latestSyncField'] = zeroPadNumber(0, 25)
+	return event
+
 def send_event(event, stream):
 	url = API_URL + "/v1/streams/" + stream['streamid'] + "/events"
 	headers = {"Authorization": stream['writeToken'], "Content-Type": "application/json"}
@@ -191,9 +242,16 @@ def sync(username, lastSyncId, stream):
 
 		startEvent = create_start_sync_event(source="1self-twitter")
 		send_event(startEvent, stream)
+		
+		#Sync tweets
 		tweets = fetch_client_tweets(client, lastSyncId)
-		events = create_tweets_events(tweets)
-		send_batch_events(events, stream)
+		tweet_events = create_tweets_events(tweets)
+		send_batch_events(tweet_events, stream)
+		#Sync follower count
+		followers_count = fetch_client_followers_count(client)
+		count_event = create_follower_count_event(followers_count)
+		send_event(count_event, stream)
+
 		endEvent = create_sync_complete_event(source="1self-twitter")
 		send_event(endEvent, stream)
 
