@@ -128,6 +128,9 @@ def create_tweets_events(tweets):
 		event['objectTags'] = app.config['OBJECT_TAGS']
 		event['dateTime'] = date
 		event['properties'] = {"retweets": tweet['retweet_count'], "favorites": tweet[u'favorite_count']}
+		if tweet['coordinates'] is not None:
+			event['location'] = {"long": tweet['coordinates']['coordinates'][0], "lat": tweet['coordinates']['coordinates'][1]}
+
 		#Sort numbers as padded strings to avoid mongo precision limits
 		event['latestSyncField'] = zeroPadNumber(tweet.id, 25)
 		events.append(event)
