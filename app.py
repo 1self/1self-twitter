@@ -18,7 +18,7 @@ CALLBACK_URL = app.config['CALLBACK_URL'] or HOST_ADDRESS + "/callback"
 API_URL = app.config['API_URL']
 APP_URL = app.config['APP_URL']
 MONGO_URI = app.config['MONGO_URI']
-app.config['DEBUG'] = True
+app.config['DEBUG'] = False
 
 class memoized(object):
    '''Decorator. Caches a function's return value each time it is called.
