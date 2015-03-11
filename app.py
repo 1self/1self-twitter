@@ -179,8 +179,8 @@ def create_follower_count_event(count):
 	event = {}
 	event['source'] = app.config['APP_NAME']
 	event['version'] = app.config['APP_VERSION']
+	event['objectTags'] = ["internet", "social-network", "twitter", "social-graph", "inbound", "follower"]
 	event['actionTags'] = ["sample"]
-	event['objectTags'] = ["internet", "social-network", "twitter", "followers"]
 	event['dateTime'] = datetime.utcnow().isoformat()
 	event['properties'] = {"count": count}
 	#Sort numbers as padded strings to avoid mongo precision limits
@@ -195,8 +195,8 @@ def create_friend_count_event(count):
 	event = {}
 	event['source'] = app.config['APP_NAME']
 	event['version'] = app.config['APP_VERSION']
+	event['objectTags'] = ["internet", "social-network", "twitter", "social-graph", "outbound", "following"]
 	event['actionTags'] = ["sample"]
-	event['objectTags'] = ["internet", "social-network", "twitter", "following"]
 	event['dateTime'] = datetime.utcnow().isoformat()
 	event['properties'] = {"count": count}
 	#Sort numbers as padded strings to avoid mongo precision limits
