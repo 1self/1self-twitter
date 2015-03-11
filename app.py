@@ -187,6 +187,22 @@ def create_follower_count_event(count):
 	event['latestSyncField'] = zeroPadNumber(0, 25)
 	return event
 
+def create_friend_count_event(count):
+	def zeroPadNumber(num, length):
+		pad = length - len(str(num))
+		return "0"*pad + str(num)
+
+	event = {}
+	event['source'] = app.config['APP_NAME']
+	event['version'] = app.config['APP_VERSION']
+	event['actionTags'] = ["following"]
+	event['objectTags'] = ["internet", "social-network", "twitter", "self"]
+	event['dateTime'] = datetime.utcnow().isoformat()
+	event['properties'] = {"count": count}
+	#Sort numbers as padded strings to avoid mongo precision limits
+	event['latestSyncField'] = zeroPadNumber(0, 25)
+	return event
+
 def send_event(event, stream):
 	url = API_URL + "/v1/streams/" + stream['streamid'] + "/events"
 	headers = {"Authorization": stream['writeToken'], "Content-Type": "application/json"}
@@ -250,6 +266,10 @@ def sync(username, lastSyncId, stream):
 		#Sync follower count
 		followers_count = fetch_client_followers_count(client)
 		count_event = create_follower_count_event(followers_count)
+		send_event(count_event, stream)
+		#Sync following count
+		following_count = fetch_client_friends_count(client)
+		count_event = create_friend_count_event(following_count)
 		send_event(count_event, stream)
 
 		endEvent = create_sync_complete_event(source="1self-twitter")
