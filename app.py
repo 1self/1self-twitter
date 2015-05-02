@@ -134,15 +134,15 @@ def register_stream(oneself_username, registration_token, callback_url=None):
 		return r.text, r.status_code
 
 def create_start_sync_event(source):
-	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["start"], "properties": {"source": source}}
+	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["1self", "integration", "sync"], "actionTags": ["start"], "source": source}
 	return event
 
 def create_sync_complete_event(source):
-	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["complete"], "properties": {"source": source}}
+	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["1self", "integration", "sync"], "actionTags": ["complete"], "source": source}
 	return event
 
 def create_sync_error_event(status):
-	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["sync"], "actionTags": ["Error"], "properties": {"source": "1self-twitter", "code": status}}
+	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["1self", "integration", "sync"], "actionTags": ["error"], "source": "1self-twitter", "properties": {"code": status}}
 	return event
 
 def create_tweets_events(tweets):
