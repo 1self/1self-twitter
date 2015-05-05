@@ -134,11 +134,11 @@ def register_stream(oneself_username, registration_token, callback_url=None):
 		return r.text, r.status_code
 
 def create_start_sync_event(source):
-	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["1self", "integration", "sync"], "actionTags": ["start"], "source": source}
+	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["1self", "integration", "sync"], "actionTags": ["start"], "source": source, "properties": {}}
 	return event
 
 def create_sync_complete_event(source):
-	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["1self", "integration", "sync"], "actionTags": ["complete"], "source": source}
+	event = {"dateTime": datetime.now().isoformat(), "objectTags": ["1self", "integration", "sync"], "actionTags": ["complete"], "source": source, "properties": {}}
 	return event
 
 def create_sync_error_event(status):
