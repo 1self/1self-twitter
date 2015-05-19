@@ -10,15 +10,29 @@ import functools
 app = Flask(__name__)
 app.config.from_object('config')
 
+app.logger.info('info messages will be logged here')
+app.logger.warning('warning messages will be logged here')
+app.logger.error('error messages will be logged here')
+app.logger.critical('critical messages will be logged here')
+
 CONSUMER_KEY = app.config['CONSUMER_KEY']
 CONSUMER_SECRET = app.config['CONSUMER_SECRET']
 HOST_ADDRESS = app.config['HOST_ADDRESS']
-PORT=app.config['PORT']
+PORT = app.config['PORT']
 CALLBACK_URL = app.config['CALLBACK_URL'] or HOST_ADDRESS + "/callback"
 API_URL = app.config['API_URL']
 APP_URL = app.config['APP_URL']
-MONGO_URI = app.config['MONGO_URI']
-app.config['DEBUG'] = False
+DBURI = app.config['DBURI']
+#app.config['DEBUG'] = False
+
+app.logger.info('CONSUMER_KEY: {0}'.format(CONSUMER_KEY))
+app.logger.info('CONSUMER_SECRET: {0}'.format(CONSUMER_SECRET))
+app.logger.info('HOST_ADDRESS: {0}'.format(HOST_ADDRESS))
+app.logger.info('PORT: {0}'.format(PORT))
+app.logger.info('CALLBACK_URL: {0}'.format(CALLBACK_URL))
+app.logger.info('API_URL: {0}'.format(API_URL))
+app.logger.info('APP_URL: {0}'.format(APP_URL))
+app.logger.info('DBURI: {0}'.format(DBURI))
 
 class memoized(object):
    '''Decorator. Caches a function's return value each time it is called.
@@ -53,7 +67,7 @@ def parse_created_at(created_at):
 	return datetime.strptime(created_at, '%a %b %d %H:%M:%S +0000 %Y')
 
 def load_db_users():
-	client = MongoClient(MONGO_URI)
+	client = MongoClient(DBURI)
 	db = client.get_default_database()
 	return db.users
 
@@ -236,6 +250,7 @@ def build_graph_url(stream):
 
 @app.route("/")
 def index():
+	print "got to index"
 	oneself_username = request.args.get('username')
 	registration_token = request.args.get('token')
 	session['oneself_username'] = oneself_username
@@ -301,6 +316,7 @@ def api_sync():
 @app.route('/api/setup')
 def setup():
 	integrations_url = APP_URL + "/integrations"
+	print integrations_url
 	
 	try:
 		OAUTH_VERIFIER = request.args.get('oauth_verifier')
