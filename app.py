@@ -65,7 +65,7 @@ def load_user_data(username):
 def load_last_since_id(username):
 	id = 1
 	data = load_user_data(username)
-	if data != None and 'since_id' in data:
+	if data is not None and 'since_id' in data:
 		id = data['since_id']
 	return id
 
