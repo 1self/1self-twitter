@@ -196,7 +196,7 @@ def create_follower_count_event(count):
 	event['objectTags'] = ["internet", "social-network", "twitter", "social-graph", "inbound", "follower"]
 	event['actionTags'] = ["sample"]
 	event['dateTime'] = datetime.utcnow().isoformat()
-	event['properties'] = {"count": count}
+	event['properties'] = {"latest-count": count}
 	#Sort numbers as padded strings to avoid mongo precision limits
 	event['latestSyncField'] = zeroPadNumber(0, 25)
 	return event
@@ -212,7 +212,7 @@ def create_friend_count_event(count):
 	event['objectTags'] = ["internet", "social-network", "twitter", "social-graph", "outbound", "following"]
 	event['actionTags'] = ["sample"]
 	event['dateTime'] = datetime.utcnow().isoformat()
-	event['properties'] = {"count": count}
+	event['properties'] = {"latest-count": count}
 	#Sort numbers as padded strings to avoid mongo precision limits
 	event['latestSyncField'] = zeroPadNumber(0, 25)
 	return event
