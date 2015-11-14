@@ -69,7 +69,7 @@ def parse_created_at(created_at):
 def load_db_users():
 	client = MongoClient(DBURI)
 	db = client.get_default_database()
-	return db.users
+	return db.twitterUsers
 
 def load_user_data(username):
 	users = load_db_users()
